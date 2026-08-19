@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace CalendarPrintAssistant;
 
 internal static class Program
@@ -6,6 +8,10 @@ internal static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
+        var form = new MainForm();
+        typeof(MainForm)
+            .GetMethod("LoadPapers", BindingFlags.Instance | BindingFlags.NonPublic)?
+            .Invoke(form, null);
+        Application.Run(form);
     }
 }
