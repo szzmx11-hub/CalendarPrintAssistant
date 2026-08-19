@@ -18,7 +18,6 @@ public sealed class MainForm : Form
     private readonly Label fileLabel = new() { Text = "拖入图片，或点击“打开图片”", AutoSize = true };
     private readonly PreviewBox preview = new();
     private Image? currentImage;
-    private string? currentPath;
 
     public MainForm()
     {
@@ -124,7 +123,7 @@ public sealed class MainForm : Form
     private void LoadPrinters()
     {
         foreach (string p in PrinterSettings.InstalledPrinters) printers.Items.Add(p);
-        using var ps = new PrinterSettings();
+        var ps = new PrinterSettings();
         if (printers.Items.Contains(ps.PrinterName)) printers.SelectedItem = ps.PrinterName;
         else if (printers.Items.Count > 0) printers.SelectedIndex = 0;
     }
@@ -160,7 +159,7 @@ public sealed class MainForm : Form
         {
             using var tmp = Image.FromFile(path);
             var bmp = new Bitmap(tmp);
-            currentImage?.Dispose(); currentImage = bmp; currentPath = path;
+            currentImage?.Dispose(); currentImage = bmp;
             fileLabel.Text = $"{Path.GetFileName(path)}   {bmp.Width}×{bmp.Height}px";
             preview.Invalidate();
         }
