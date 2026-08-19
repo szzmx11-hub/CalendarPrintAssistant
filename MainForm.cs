@@ -5,254 +5,559 @@ namespace CalendarPrintAssistant;
 
 public sealed class MainForm : Form
 {
-    private readonly ComboBox printers = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly ComboBox papers = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly RadioButton portrait = new() { Text = "纵向", Checked = true, AutoSize = true };
-    private readonly RadioButton landscape = new() { Text = "横向", AutoSize = true };
-    private readonly NumericUpDown widthCm = new() { Minimum = 1, Maximum = 100, DecimalPlaces = 2, Value = 21.00M, Increment = 0.10M };
-    private readonly NumericUpDown heightCm = new() { Minimum = 1, Maximum = 100, DecimalPlaces = 2, Value = 21.00M, Increment = 0.10M };
-    private readonly NumericUpDown copies = new() { Minimum = 1, Maximum = 999, Value = 1 };
-    private readonly ComboBox position = new() { DropDownStyle = ComboBoxStyle.DropDownList };
-    private readonly CheckBox keepRatio = new() { Text = "保持比例", Checked = true, AutoSize = true };
-    private readonly CheckBox crop = new() { Text = "允许裁切填满", AutoSize = true };
-    private readonly Label fileLabel = new() { Text = "拖入图片，或点击“打开图片”", AutoSize = true };
-    private readonly PreviewBox preview = new();
+    private readonly ComboBox cmbPrinter = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox cmbPaper = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox cmbQuality = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox cmbLayout = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly ComboBox cmbPosition = new() { DropDownStyle = ComboBoxStyle.DropDownList };
+    private readonly RadioButton rbPortrait = new() { Text = "纵向", Checked = true, AutoSize = true };
+    private readonly RadioButton rbLandscape = new() { Text = "横向", AutoSize = true };
+    private readonly NumericUpDown nudCopies = new() { Minimum = 1, Maximum = 999, Value = 1, Width = 95 };
+    private readonly CheckBox chkAutoRotate = new() { Text = "自动旋转以匹配纸张", Checked = true, AutoSize = true };
+    private readonly CheckBox chkShowSafeArea = new() { Text = "显示安全区域", AutoSize = true };
+    private readonly Label lblFile = new() { Text = "还没有添加图片", AutoEllipsis = true };
+    private readonly Label lblImageInfo = new() { Text = "支持 JPG / PNG / BMP", ForeColor = Color.Gray, AutoSize = true };
+    private readonly Label lblPaperInfo = new() { ForeColor = Color.Gray, AutoSize = true };
+    private readonly PrintPreviewPanel preview = new();
     private Image? currentImage;
+    private string? currentPath;
+    private bool loadingPapers;
+
+    private readonly Color accent = Color.FromArgb(64, 92, 255);
+    private readonly Color surface = Color.White;
+    private readonly Color canvas = Color.FromArgb(242, 244, 247);
 
     public MainForm()
     {
-        Text = "日历打印助手 v0.1";
+        Text = "日历打印助手 v0.2";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1000, 680);
-        Size = new Size(1160, 760);
+        MinimumSize = new Size(1080, 700);
+        Size = new Size(1280, 800);
+        BackColor = canvas;
         Font = new Font("Microsoft YaHei UI", 9F);
         AutoScaleMode = AutoScaleMode.Dpi;
         AllowDrop = true;
 
         BuildUi();
         LoadPrinters();
-        position.Items.AddRange(new object[] { "顶部居中", "页面居中", "左上角" });
-        position.SelectedIndex = 0;
-
-        printers.SelectedIndexChanged += (_, _) => LoadPapers();
-        portrait.CheckedChanged += (_, _) => preview.Invalidate();
-        landscape.CheckedChanged += (_, _) => preview.Invalidate();
-        widthCm.ValueChanged += (_, _) => preview.Invalidate();
-        heightCm.ValueChanged += (_, _) => preview.Invalidate();
-        position.SelectedIndexChanged += (_, _) => preview.Invalidate();
-        crop.CheckedChanged += (_, _) => preview.Invalidate();
+        SetupDefaults();
+        WireEvents();
 
         preview.StateProvider = GetPreviewState;
-        DragEnter += (_, e) => { if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true) e.Effect = DragDropEffects.Copy; };
-        DragDrop += (_, e) => { if (e.Data?.GetData(DataFormats.FileDrop) is string[] f && f.Length > 0) LoadImage(f[0]); };
         FormClosed += (_, _) => currentImage?.Dispose();
     }
 
     private void BuildUi()
     {
-        var root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 2, RowCount = 1 };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68));
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32));
+        var root = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(16),
+            BackColor = canvas
+        };
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 72));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
         Controls.Add(root);
 
-        var left = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2 };
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-        left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        var topBar = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0) };
-        var open = new Button { Text = "打开图片", Width = 100, Height = 32 };
-        open.Click += (_, _) => OpenImage();
-        fileLabel.Padding = new Padding(10, 8, 0, 0);
-        topBar.Controls.Add(open);
-        topBar.Controls.Add(fileLabel);
+        var leftCard = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = surface,
+            Margin = new Padding(0, 0, 12, 0),
+            Padding = new Padding(0)
+        };
+        root.Controls.Add(leftCard, 0, 0);
+
+        var leftLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(14)
+        };
+        leftLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
+        leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        leftCard.Controls.Add(leftLayout);
+
+        var toolbar = new Panel { Dock = DockStyle.Fill, BackColor = surface };
+        leftLayout.Controls.Add(toolbar, 0, 0);
+
+        var btnOpen = MakePrimaryButton("＋  添加图片", 112, 36);
+        btnOpen.Location = new Point(0, 10);
+        btnOpen.Click += (_, _) => OpenImage();
+        toolbar.Controls.Add(btnOpen);
+
+        lblFile.Location = new Point(128, 10);
+        lblFile.Size = new Size(520, 22);
+        lblFile.Font = new Font(Font, FontStyle.Bold);
+        toolbar.Controls.Add(lblFile);
+
+        lblImageInfo.Location = new Point(128, 34);
+        toolbar.Controls.Add(lblImageInfo);
+
         preview.Dock = DockStyle.Fill;
-        preview.BorderStyle = BorderStyle.FixedSingle;
-        preview.BackColor = Color.FromArgb(245, 245, 245);
-        left.Controls.Add(topBar, 0, 0);
-        left.Controls.Add(preview, 0, 1);
-        root.Controls.Add(left, 0, 0);
+        preview.BackColor = Color.FromArgb(235, 237, 241);
+        leftLayout.Controls.Add(preview, 0, 1);
 
-        var side = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(14), BackColor = Color.White, ColumnCount = 2, AutoScroll = true };
-        side.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 95));
-        side.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        var rightCard = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = surface,
+            Padding = new Padding(18),
+            AutoScroll = true
+        };
+        root.Controls.Add(rightCard, 1, 0);
+
+        var settings = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 2,
+            RowCount = 20,
+            BackColor = surface
+        };
+        settings.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
+        settings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        rightCard.Controls.Add(settings);
+
         int r = 0;
-        AddHeading(side, "打印设置", ref r);
-        AddRow(side, "打印机", printers, ref r);
-        AddRow(side, "纸张", papers, ref r);
-        var dir = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
-        dir.Controls.Add(portrait); dir.Controls.Add(landscape);
-        AddRow(side, "方向", dir, ref r);
-        AddHeading(side, "21×21cm 日历", ref r);
-        var size = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = false };
-        widthCm.Width = 78; heightCm.Width = 78;
-        size.Controls.Add(widthCm); size.Controls.Add(new Label { Text = "×", AutoSize = true, Padding = new Padding(3, 6, 3, 0) }); size.Controls.Add(heightCm);
-        AddRow(side, "尺寸(cm)", size, ref r);
-        AddRow(side, "位置", position, ref r);
-        var opts = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
-        opts.Controls.Add(keepRatio); opts.Controls.Add(crop);
-        AddRow(side, "选项", opts, ref r);
-        AddRow(side, "份数", copies, ref r);
+        AddTitle(settings, "打印设置", ref r);
+        AddRow(settings, "打印机", cmbPrinter, ref r);
 
-        var props = new Button { Text = "打印机属性", Height = 32, Dock = DockStyle.Top };
-        props.Click += (_, _) => ShowPrinterDialog(false);
-        AddRow(side, "", props, ref r);
-        var pp = new Button { Text = "打印预览", Height = 34, Dock = DockStyle.Top };
-        pp.Click += (_, _) => ShowPreview();
-        AddRow(side, "", pp, ref r);
-        var print = new Button { Text = "打印", Height = 40, Dock = DockStyle.Top, Font = new Font(Font, FontStyle.Bold) };
-        print.Click += (_, _) => PrintNow();
-        AddRow(side, "", print, ref r);
-        var note = new Label { AutoSize = true, MaximumSize = new Size(300, 0), ForeColor = Color.DimGray, Text = "建议：A4纵向、21.00×21.00cm。Canon 无边框请在“打印机属性”里启用。" };
-        AddRow(side, "", note, ref r);
-        root.Controls.Add(side, 1, 0);
+        var propButton = MakeSecondaryButton("打印机属性", 110, 30);
+        propButton.Click += (_, _) => ShowPrinterProperties();
+        AddRow(settings, "", propButton, ref r);
+
+        AddDivider(settings, ref r);
+        AddTitle(settings, "纸张与方向", ref r);
+        AddRow(settings, "纸张大小", cmbPaper, ref r);
+        AddRow(settings, "", lblPaperInfo, ref r);
+
+        var dirPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = false };
+        dirPanel.Controls.Add(rbPortrait);
+        dirPanel.Controls.Add(rbLandscape);
+        AddRow(settings, "方向", dirPanel, ref r);
+
+        AddRow(settings, "打印质量", cmbQuality, ref r);
+
+        AddDivider(settings, ref r);
+        AddTitle(settings, "图片布局", ref r);
+        AddRow(settings, "图片大小", cmbLayout, ref r);
+        AddRow(settings, "图片位置", cmbPosition, ref r);
+
+        var optionPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false
+        };
+        optionPanel.Controls.Add(chkAutoRotate);
+        optionPanel.Controls.Add(chkShowSafeArea);
+        AddRow(settings, "选项", optionPanel, ref r);
+
+        AddDivider(settings, ref r);
+        AddTitle(settings, "打印", ref r);
+        AddRow(settings, "打印份数", nudCopies, ref r);
+
+        var tip = new Label
+        {
+            Text = "左侧就是最终排版预览。需要 Canon 无边框、照片纸类型等驱动专用参数时，点击“打印机属性”设置。",
+            AutoSize = true,
+            MaximumSize = new Size(280, 0),
+            ForeColor = Color.FromArgb(105, 105, 105),
+            Padding = new Padding(0, 8, 0, 8)
+        };
+        AddRow(settings, "", tip, ref r);
+
+        var btnPrint = MakePrimaryButton("打印", 0, 46);
+        btnPrint.Dock = DockStyle.Top;
+        btnPrint.Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold);
+        btnPrint.Click += (_, _) => PrintNow();
+        AddRow(settings, "", btnPrint, ref r);
     }
 
-    private static void AddHeading(TableLayoutPanel t, string text, ref int r)
+    private void SetupDefaults()
     {
-        var l = new Label { Text = text, AutoSize = true, Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold), Padding = new Padding(0, 10, 0, 8) };
-        t.Controls.Add(l, 0, r); t.SetColumnSpan(l, 2); r++;
+        cmbQuality.Items.AddRange(new object[] { "高", "标准" });
+        cmbQuality.SelectedIndex = 0;
+
+        cmbLayout.Items.AddRange(new object[]
+        {
+            "铺满纸张（裁切边缘）",
+            "适应纸张（完整显示）"
+        });
+        cmbLayout.SelectedIndex = 0;
+
+        cmbPosition.Items.AddRange(new object[] { "页面居中", "顶部居中", "左上角" });
+        cmbPosition.SelectedIndex = 0;
     }
 
-    private static void AddRow(TableLayoutPanel t, string name, Control c, ref int r)
+    private void WireEvents()
     {
-        var l = new Label { Text = name, AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 8, 0, 5) };
-        c.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        c.Margin = new Padding(3, 4, 3, 4);
-        t.Controls.Add(l, 0, r); t.Controls.Add(c, 1, r); r++;
+        cmbPrinter.SelectedIndexChanged += (_, _) => LoadPapers();
+        cmbPaper.SelectedIndexChanged += (_, _) => { UpdatePaperInfo(); preview.Invalidate(); };
+        cmbLayout.SelectedIndexChanged += (_, _) => preview.Invalidate();
+        cmbPosition.SelectedIndexChanged += (_, _) => preview.Invalidate();
+        cmbQuality.SelectedIndexChanged += (_, _) => preview.Invalidate();
+        rbPortrait.CheckedChanged += (_, _) => preview.Invalidate();
+        rbLandscape.CheckedChanged += (_, _) => preview.Invalidate();
+        chkAutoRotate.CheckedChanged += (_, _) => preview.Invalidate();
+        chkShowSafeArea.CheckedChanged += (_, _) => preview.Invalidate();
+
+        DragEnter += (_, e) =>
+        {
+            if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
+                e.Effect = DragDropEffects.Copy;
+        };
+        DragDrop += (_, e) =>
+        {
+            if (e.Data?.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+                LoadImage(files[0]);
+        };
+    }
+
+    private Button MakePrimaryButton(string text, int width, int height)
+    {
+        return new Button
+        {
+            Text = text,
+            Width = width,
+            Height = height,
+            BackColor = accent,
+            ForeColor = Color.White,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            UseVisualStyleBackColor = false,
+            FlatAppearance = { BorderSize = 0 }
+        };
+    }
+
+    private static Button MakeSecondaryButton(string text, int width, int height)
+    {
+        return new Button
+        {
+            Text = text,
+            Width = width,
+            Height = height,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.White,
+            Cursor = Cursors.Hand,
+            FlatAppearance = { BorderColor = Color.FromArgb(205, 208, 215) }
+        };
+    }
+
+    private static void AddTitle(TableLayoutPanel panel, string text, ref int row)
+    {
+        var label = new Label
+        {
+            Text = text,
+            AutoSize = true,
+            Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold),
+            Padding = new Padding(0, 8, 0, 8)
+        };
+        panel.Controls.Add(label, 0, row);
+        panel.SetColumnSpan(label, 2);
+        row++;
+    }
+
+    private static void AddDivider(TableLayoutPanel panel, ref int row)
+    {
+        var line = new Panel { Height = 1, Dock = DockStyle.Top, BackColor = Color.FromArgb(232, 234, 238), Margin = new Padding(0, 10, 0, 6) };
+        panel.Controls.Add(line, 0, row);
+        panel.SetColumnSpan(line, 2);
+        row++;
+    }
+
+    private static void AddRow(TableLayoutPanel panel, string name, Control control, ref int row)
+    {
+        var label = new Label
+        {
+            Text = name,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Padding = new Padding(0, 8, 0, 5)
+        };
+        control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        control.Margin = new Padding(3, 4, 3, 4);
+        panel.Controls.Add(label, 0, row);
+        panel.Controls.Add(control, 1, row);
+        row++;
     }
 
     private void LoadPrinters()
     {
-        foreach (string p in PrinterSettings.InstalledPrinters) printers.Items.Add(p);
-        var ps = new PrinterSettings();
-        if (printers.Items.Contains(ps.PrinterName)) printers.SelectedItem = ps.PrinterName;
-        else if (printers.Items.Count > 0) printers.SelectedIndex = 0;
+        cmbPrinter.Items.Clear();
+        foreach (string p in PrinterSettings.InstalledPrinters)
+            cmbPrinter.Items.Add(p);
+
+        var settings = new PrinterSettings();
+        if (!string.IsNullOrWhiteSpace(settings.PrinterName) && cmbPrinter.Items.Contains(settings.PrinterName))
+            cmbPrinter.SelectedItem = settings.PrinterName;
+        else if (cmbPrinter.Items.Count > 0)
+            cmbPrinter.SelectedIndex = 0;
+
+        if (cmbPrinter.Items.Count == 0)
+        {
+            cmbPrinter.Items.Add("未检测到打印机");
+            cmbPrinter.SelectedIndex = 0;
+            cmbPrinter.Enabled = false;
+            LoadFallbackPapers();
+        }
     }
 
     private void LoadPapers()
     {
-        papers.Items.Clear();
-        if (printers.SelectedItem is not string name) return;
+        if (loadingPapers || cmbPrinter.SelectedItem is not string printerName || printerName == "未检测到打印机")
+            return;
+
+        loadingPapers = true;
         try
         {
-            var ps = new PrinterSettings { PrinterName = name };
-            int a4 = -1;
+            cmbPaper.Items.Clear();
+            var ps = new PrinterSettings { PrinterName = printerName };
+            int a4Index = -1;
+
             foreach (PaperSize p in ps.PaperSizes)
             {
-                papers.Items.Add(new PaperItem(p));
-                if (a4 < 0 && (p.Kind == PaperKind.A4 || p.PaperName.Contains("A4", StringComparison.OrdinalIgnoreCase))) a4 = papers.Items.Count - 1;
+                var item = new PaperItem(p);
+                cmbPaper.Items.Add(item);
+                if (a4Index < 0 && IsA4(p))
+                    a4Index = cmbPaper.Items.Count - 1;
             }
-            if (papers.Items.Count > 0) papers.SelectedIndex = a4 >= 0 ? a4 : 0;
+
+            if (cmbPaper.Items.Count == 0)
+            {
+                LoadFallbackPapers();
+                return;
+            }
+
+            cmbPaper.SelectedIndex = a4Index >= 0 ? a4Index : 0;
         }
-        catch { }
-        preview.Invalidate();
+        catch
+        {
+            LoadFallbackPapers();
+        }
+        finally
+        {
+            loadingPapers = false;
+            UpdatePaperInfo();
+            preview.Invalidate();
+        }
+    }
+
+    private void LoadFallbackPapers()
+    {
+        cmbPaper.Items.Clear();
+        cmbPaper.Items.Add(new PaperItem(new PaperSize("A4", 827, 1169)));
+        cmbPaper.Items.Add(new PaperItem(new PaperSize("A5", 583, 827)));
+        cmbPaper.Items.Add(new PaperItem(new PaperSize("Letter", 850, 1100)));
+        cmbPaper.SelectedIndex = 0;
+        UpdatePaperInfo();
+    }
+
+    private static bool IsA4(PaperSize p)
+    {
+        if (p.Kind == PaperKind.A4 || p.PaperName.Contains("A4", StringComparison.OrdinalIgnoreCase))
+            return true;
+        int w = Math.Min(p.Width, p.Height);
+        int h = Math.Max(p.Width, p.Height);
+        return Math.Abs(w - 827) <= 10 && Math.Abs(h - 1169) <= 10;
+    }
+
+    private void UpdatePaperInfo()
+    {
+        if (cmbPaper.SelectedItem is not PaperItem p)
+        {
+            lblPaperInfo.Text = string.Empty;
+            return;
+        }
+        float w = p.Size.Width / 100f * 25.4f;
+        float h = p.Size.Height / 100f * 25.4f;
+        lblPaperInfo.Text = $"{w:0.#} × {h:0.#} mm";
     }
 
     private void OpenImage()
     {
-        using var d = new OpenFileDialog { Filter = "图片|*.jpg;*.jpeg;*.png;*.bmp;*.gif|所有文件|*.*" };
-        if (d.ShowDialog(this) == DialogResult.OK) LoadImage(d.FileName);
+        using var dialog = new OpenFileDialog
+        {
+            Filter = "图片文件|*.jpg;*.jpeg;*.png;*.bmp;*.gif|所有文件|*.*",
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+            LoadImage(dialog.FileName);
     }
 
     private void LoadImage(string path)
     {
         try
         {
-            using var tmp = Image.FromFile(path);
-            var bmp = new Bitmap(tmp);
-            currentImage?.Dispose(); currentImage = bmp;
-            fileLabel.Text = $"{Path.GetFileName(path)}   {bmp.Width}×{bmp.Height}px";
+            using var source = Image.FromFile(path);
+            var copy = new Bitmap(source);
+            currentImage?.Dispose();
+            currentImage = copy;
+            currentPath = path;
+            lblFile.Text = Path.GetFileName(path);
+            lblImageInfo.Text = $"{copy.Width} × {copy.Height} px   ·   {(copy.Width >= copy.Height ? "横图" : "竖图")}";
             preview.Invalidate();
         }
-        catch (Exception ex) { MessageBox.Show("图片打开失败：" + ex.Message); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "图片打开失败：" + ex.Message, "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
     }
 
     private PrintDocument CreateDocument()
     {
-        if (printers.SelectedItem is not string printerName) throw new InvalidOperationException("没有可用打印机");
+        if (cmbPrinter.SelectedItem is not string printerName || printerName == "未检测到打印机")
+            throw new InvalidOperationException("没有检测到可用打印机。请先在 Windows 中安装打印机。 ");
+
         var doc = new PrintDocument();
         doc.PrinterSettings.PrinterName = printerName;
-        doc.PrinterSettings.Copies = (short)copies.Value;
-        if (papers.SelectedItem is PaperItem pi) doc.DefaultPageSettings.PaperSize = pi.Size;
-        doc.DefaultPageSettings.Landscape = landscape.Checked;
+        doc.PrinterSettings.Copies = (short)nudCopies.Value;
         doc.OriginAtMargins = false;
+
+        if (cmbPaper.SelectedItem is PaperItem paper)
+            doc.DefaultPageSettings.PaperSize = paper.Size;
+
+        doc.DefaultPageSettings.Landscape = rbLandscape.Checked;
+        ApplyQuality(doc);
         doc.PrintPage += PrintPage;
         return doc;
     }
 
+    private void ApplyQuality(PrintDocument doc)
+    {
+        try
+        {
+            var resolutions = doc.PrinterSettings.PrinterResolutions.Cast<PrinterResolution>().ToList();
+            if (resolutions.Count == 0) return;
+
+            PrinterResolution selected;
+            if (cmbQuality.SelectedIndex == 0)
+            {
+                selected = resolutions
+                    .Where(r => r.X > 0 && r.Y > 0)
+                    .OrderByDescending(r => r.X * r.Y)
+                    .FirstOrDefault() ?? resolutions[0];
+            }
+            else
+            {
+                selected = resolutions.FirstOrDefault(r => r.Kind == PrinterResolutionKind.Medium)
+                           ?? resolutions.FirstOrDefault(r => r.Kind == PrinterResolutionKind.Low)
+                           ?? resolutions[0];
+            }
+            doc.DefaultPageSettings.PrinterResolution = selected;
+        }
+        catch { }
+    }
+
+    private void ShowPrinterProperties()
+    {
+        try
+        {
+            using var doc = CreateDocument();
+            using var dialog = new PrintDialog
+            {
+                Document = doc,
+                UseEXDialog = true,
+                AllowPrintToFile = false,
+                AllowSelection = false,
+                AllowSomePages = false
+            };
+            dialog.ShowDialog(this);
+            LoadPapers();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "打印机设置", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+
     private void PrintNow()
     {
-        if (currentImage == null) { MessageBox.Show("请先打开图片"); return; }
-        try
+        if (currentImage == null)
         {
-            using var doc = CreateDocument();
-            using var d = new PrintDialog { Document = doc, UseEXDialog = true, AllowPrintToFile = false };
-            if (d.ShowDialog(this) == DialogResult.OK) doc.Print();
+            MessageBox.Show(this, "请先添加一张需要打印的图片。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
         }
-        catch (Exception ex) { MessageBox.Show("打印失败：" + ex.Message); }
-    }
 
-    private void ShowPreview()
-    {
-        if (currentImage == null) { MessageBox.Show("请先打开图片"); return; }
         try
         {
             using var doc = CreateDocument();
-            using var p = new PrintPreviewDialog { Document = doc, Width = 1000, Height = 760, StartPosition = FormStartPosition.CenterParent };
-            p.ShowDialog(this);
+            doc.Print();
         }
-        catch (Exception ex) { MessageBox.Show("预览失败：" + ex.Message); }
-    }
-
-    private void ShowPrinterDialog(bool print)
-    {
-        try
+        catch (Exception ex)
         {
-            using var doc = CreateDocument();
-            using var d = new PrintDialog { Document = doc, UseEXDialog = true };
-            if (d.ShowDialog(this) == DialogResult.OK && print) doc.Print();
+            MessageBox.Show(this, "打印失败：" + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
-        catch (Exception ex) { MessageBox.Show("无法打开打印设置：" + ex.Message); }
     }
 
     private void PrintPage(object? sender, PrintPageEventArgs e)
     {
         if (currentImage == null) return;
+
         e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
         e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        float w = (float)widthCm.Value / 2.54f * 100f;
-        float h = (float)heightCm.Value / 2.54f * 100f;
-        float pageW = e.PageBounds.Width, pageH = e.PageBounds.Height;
-        float x = position.SelectedIndex switch { 0 => (pageW - w) / 2f, 1 => (pageW - w) / 2f, _ => 0f };
-        float y = position.SelectedIndex switch { 1 => (pageH - h) / 2f, _ => 0f };
-        DrawSmart(e.Graphics, currentImage, new RectangleF(x, y, w, h), crop.Checked);
+        e.Graphics.SmoothingMode = SmoothingMode.HighQuality;
+
+        var page = new RectangleF(0, 0, e.PageBounds.Width, e.PageBounds.Height);
+        DrawImageToPage(e.Graphics, currentImage, page, cmbLayout.SelectedIndex == 0, cmbPosition.SelectedIndex);
         e.HasMorePages = false;
     }
 
     private PreviewState GetPreviewState()
     {
-        float pw = 210, ph = 297;
-        if (papers.SelectedItem is PaperItem p)
+        float paperW = 210f, paperH = 297f;
+        if (cmbPaper.SelectedItem is PaperItem p)
         {
-            pw = p.Size.Width / 100f * 25.4f; ph = p.Size.Height / 100f * 25.4f;
+            paperW = p.Size.Width / 100f * 25.4f;
+            paperH = p.Size.Height / 100f * 25.4f;
         }
-        if (landscape.Checked) (pw, ph) = (ph, pw);
-        return new PreviewState(currentImage, pw, ph, (float)widthCm.Value * 10f, (float)heightCm.Value * 10f, position.SelectedIndex, crop.Checked);
+        if (rbLandscape.Checked)
+            (paperW, paperH) = (paperH, paperW);
+
+        return new PreviewState(
+            currentImage,
+            paperW,
+            paperH,
+            cmbLayout.SelectedIndex == 0,
+            cmbPosition.SelectedIndex,
+            chkShowSafeArea.Checked);
     }
 
-    private static void DrawSmart(Graphics g, Image img, RectangleF dest, bool doCrop)
+    private static void DrawImageToPage(Graphics g, Image image, RectangleF page, bool cropFill, int positionIndex)
     {
-        if (!doCrop)
+        if (cropFill)
         {
-            float s = Math.Min(dest.Width / img.Width, dest.Height / img.Height);
-            float w = img.Width * s, h = img.Height * s;
-            g.DrawImage(img, new RectangleF(dest.X + (dest.Width - w) / 2f, dest.Y + (dest.Height - h) / 2f, w, h));
+            float sourceAspect = image.Width / (float)image.Height;
+            float pageAspect = page.Width / page.Height;
+            RectangleF src;
+
+            if (sourceAspect > pageAspect)
+            {
+                float srcW = image.Height * pageAspect;
+                float srcX = positionIndex == 2 ? 0 : (image.Width - srcW) / 2f;
+                src = new RectangleF(srcX, 0, srcW, image.Height);
+            }
+            else
+            {
+                float srcH = image.Width / pageAspect;
+                float srcY = positionIndex == 1 || positionIndex == 2 ? 0 : (image.Height - srcH) / 2f;
+                src = new RectangleF(0, srcY, image.Width, srcH);
+            }
+            g.DrawImage(image, page, src, GraphicsUnit.Pixel);
             return;
         }
-        float sa = img.Width / (float)img.Height, da = dest.Width / dest.Height;
-        RectangleF src;
-        if (sa > da) { float sw = img.Height * da; src = new RectangleF((img.Width - sw) / 2f, 0, sw, img.Height); }
-        else { float sh = img.Width / da; src = new RectangleF(0, (img.Height - sh) / 2f, img.Width, sh); }
-        g.DrawImage(img, dest, src, GraphicsUnit.Pixel);
+
+        float scale = Math.Min(page.Width / image.Width, page.Height / image.Height);
+        float w = image.Width * scale;
+        float h = image.Height * scale;
+        float x = positionIndex == 2 ? 0 : (page.Width - w) / 2f;
+        float y = positionIndex == 0 ? (page.Height - h) / 2f : 0;
+        g.DrawImage(image, new RectangleF(x, y, w, h));
     }
 
     private sealed class PaperItem
@@ -262,31 +567,83 @@ public sealed class MainForm : Form
         public override string ToString() => Size.PaperName;
     }
 
-    private sealed record PreviewState(Image? Image, float PaperWmm, float PaperHmm, float ImgWmm, float ImgHmm, int Position, bool Crop);
+    private sealed record PreviewState(
+        Image? Image,
+        float PaperWmm,
+        float PaperHmm,
+        bool CropFill,
+        int PositionIndex,
+        bool ShowSafeArea);
 
-    private sealed class PreviewBox : Panel
+    private sealed class PrintPreviewPanel : Panel
     {
         public Func<PreviewState>? StateProvider { get; set; }
-        public PreviewBox() { DoubleBuffered = true; ResizeRedraw = true; }
+
+        public PrintPreviewPanel()
+        {
+            DoubleBuffered = true;
+            ResizeRedraw = true;
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
             if (StateProvider == null) return;
             var s = StateProvider();
-            float m = 30;
-            float scale = Math.Min((ClientSize.Width - 2 * m) / s.PaperWmm, (ClientSize.Height - 2 * m) / s.PaperHmm);
-            float pw = s.PaperWmm * scale, ph = s.PaperHmm * scale;
-            float px = (ClientSize.Width - pw) / 2f, py = (ClientSize.Height - ph) / 2f;
-            e.Graphics.FillRectangle(Brushes.LightGray, px + 6, py + 6, pw, ph);
-            e.Graphics.FillRectangle(Brushes.White, px, py, pw, ph);
-            e.Graphics.DrawRectangle(Pens.Silver, px, py, pw, ph);
-            if (s.Image == null) return;
-            float x = s.Position switch { 0 => (s.PaperWmm - s.ImgWmm) / 2f, 1 => (s.PaperWmm - s.ImgWmm) / 2f, _ => 0f };
-            float y = s.Position == 1 ? (s.PaperHmm - s.ImgHmm) / 2f : 0f;
-            var d = new RectangleF(px + x * scale, py + y * scale, s.ImgWmm * scale, s.ImgHmm * scale);
-            DrawSmart(e.Graphics, s.Image, d, s.Crop);
-            using var pen = new Pen(Color.DodgerBlue, 2);
-            e.Graphics.DrawRectangle(pen, d.X, d.Y, d.Width, d.Height);
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+            const float margin = 28f;
+            float scale = Math.Min(
+                Math.Max(1, ClientSize.Width - margin * 2) / s.PaperWmm,
+                Math.Max(1, ClientSize.Height - margin * 2) / s.PaperHmm);
+
+            float paperW = s.PaperWmm * scale;
+            float paperH = s.PaperHmm * scale;
+            float px = (ClientSize.Width - paperW) / 2f;
+            float py = (ClientSize.Height - paperH) / 2f;
+
+            using var shadow = new SolidBrush(Color.FromArgb(28, 0, 0, 0));
+            e.Graphics.FillRectangle(shadow, px + 7, py + 8, paperW, paperH);
+            e.Graphics.FillRectangle(Brushes.White, px, py, paperW, paperH);
+
+            if (s.Image != null)
+            {
+                var page = new RectangleF(px, py, paperW, paperH);
+                DrawImageToPage(e.Graphics, s.Image, page, s.CropFill, s.PositionIndex);
+            }
+            else
+            {
+                using var titleFont = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold);
+                using var subFont = new Font("Microsoft YaHei UI", 9F);
+                string title = "把图片拖到这里";
+                string sub = "或者点击左上角“添加图片”";
+                var ts = e.Graphics.MeasureString(title, titleFont);
+                var ss = e.Graphics.MeasureString(sub, subFont);
+                e.Graphics.DrawString(title, titleFont, Brushes.DimGray,
+                    px + (paperW - ts.Width) / 2f, py + paperH / 2f - 28);
+                e.Graphics.DrawString(sub, subFont, Brushes.Gray,
+                    px + (paperW - ss.Width) / 2f, py + paperH / 2f + 4);
+            }
+
+            if (s.ShowSafeArea)
+            {
+                float inset = 5f * scale;
+                using var pen = new Pen(Color.FromArgb(170, 255, 120, 0), 1) { DashStyle = DashStyle.Dash };
+                e.Graphics.DrawRectangle(pen, px + inset, py + inset, paperW - inset * 2, paperH - inset * 2);
+            }
+
+            using var paperPen = new Pen(Color.FromArgb(215, 218, 224), 1);
+            e.Graphics.DrawRectangle(paperPen, px, py, paperW, paperH);
+
+            using var badgeFont = new Font("Microsoft YaHei UI", 8F);
+            string badge = $"{s.PaperWmm:0.#} × {s.PaperHmm:0.#} mm";
+            var badgeSize = e.Graphics.MeasureString(badge, badgeFont);
+            var badgeRect = new RectangleF(px + 10, py + 10, badgeSize.Width + 14, badgeSize.Height + 6);
+            using var badgeBg = new SolidBrush(Color.FromArgb(220, 255, 255, 255));
+            e.Graphics.FillRectangle(badgeBg, badgeRect);
+            e.Graphics.DrawString(badge, badgeFont, Brushes.DimGray, badgeRect.X + 7, badgeRect.Y + 3);
         }
     }
 }
