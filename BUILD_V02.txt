@@ -1,0 +1,1 @@
+Build validation for CalendarPrintAssistant v0.2.
