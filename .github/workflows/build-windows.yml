@@ -1,0 +1,33 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish single EXE
+        shell: pwsh
+        run: dotnet publish CalendarPrintAssistant.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -o publish
+
+      - name: Rename EXE
+        shell: pwsh
+        run: Copy-Item publish/CalendarPrintAssistant.exe publish/日历打印助手.exe
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: CalendarPrintAssistant-Windows-x64
+          path: publish/日历打印助手.exe
+          if-no-files-found: error
