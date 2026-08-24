@@ -179,13 +179,13 @@ public:
     }
     STDMETHOD(raw_StartSession)() override {
         try {
-            app_->AddPluginCommand(_bstr_t(kDialogCommand), _bstr_t(L"SCM V9.1.0 原生自动寻边设置"),
+            app_->AddPluginCommand(_bstr_t(kDialogCommand), _bstr_t(L"SCM V9.1.1 原生自动寻边设置"),
                                    _bstr_t(L"从位图生成经过拓扑校验的激光切割闭合轮廓"));
-            app_->AddPluginCommand(_bstr_t(kOuterCommand), _bstr_t(L"SCM V9.1.0 产品外形寻边"),
+            app_->AddPluginCommand(_bstr_t(kOuterCommand), _bstr_t(L"SCM V9.1.1 产品外形寻边"),
                                    _bstr_t(L"由 V8 风格泊坞窗直接生成产品最外围轮廓"));
-            app_->AddPluginCommand(_bstr_t(kOuterHolesCommand), _bstr_t(L"SCM V9.1.0 外形与圆孔寻边"),
+            app_->AddPluginCommand(_bstr_t(kOuterHolesCommand), _bstr_t(L"SCM V9.1.1 外形与圆孔寻边"),
                                    _bstr_t(L"由 V8 风格泊坞窗直接生成外轮廓和孔位"));
-            app_->AddPluginCommand(_bstr_t(kHolesCommand), _bstr_t(L"SCM V9.1.0 仅圆孔寻边"),
+            app_->AddPluginCommand(_bstr_t(kHolesCommand), _bstr_t(L"SCM V9.1.1 仅圆孔寻边"),
                                    _bstr_t(L"由 V8 风格泊坞窗直接生成孔位"));
             try {
                 auto control = app_->CommandBars->Item[_bstr_t(L"Standard")]->Controls->AddCustomButton(
@@ -196,7 +196,7 @@ public:
             }
             cookie_ = app_->AdviseEvents(this);
         } catch (const _com_error& e) {
-            MessageBoxW(nullptr, e.Description(), L"SCM V9.1.0 插件加载错误", MB_OK | MB_ICONERROR);
+            MessageBoxW(nullptr, e.Description(), L"SCM V9.1.1 插件加载错误", MB_OK | MB_ICONERROR);
         }
         return S_OK;
     }
@@ -235,7 +235,7 @@ private:
         scm::RunSummary summary;
         std::wstring error;
         if (!scm::runOnCorelSelection(app_, options, summary, error)) {
-            MessageBoxW(owner, error.c_str(), L"SCM V9.1.0 自动寻边", MB_OK | MB_ICONERROR);
+            MessageBoxW(owner, error.c_str(), L"SCM V9.1.1 自动寻边", MB_OK | MB_ICONERROR);
             return;
         }
         std::wostringstream text;
@@ -245,12 +245,12 @@ private:
              << summary.maximumDeviationMillimeters << L" mm\n"
              << L"开口 / 自交 / 重复段：" << summary.quality.openPaths << L" / "
              << summary.quality.selfIntersections << L" / " << summary.quality.duplicateSegments;
-        MessageBoxW(owner, text.str().c_str(), L"SCM V9.1.0 自动寻边质量报告", MB_OK | MB_ICONINFORMATION);
+        MessageBoxW(owner, text.str().c_str(), L"SCM V9.1.1 自动寻边质量报告", MB_OK | MB_ICONINFORMATION);
     }
 
     void runPreset(const _bstr_t& command) {
         writeRegistryText(L"LastStatus", L"running");
-        writeRegistryText(L"LastMessage", L"V9.1.0 原生引擎正在处理位图");
+        writeRegistryText(L"LastMessage", L"V9.1.1 原生引擎正在处理位图");
         const scm::RunOptions options = loadPanelOptions(command);
         scm::RunSummary summary;
         std::wstring error;
