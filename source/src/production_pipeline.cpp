@@ -665,12 +665,17 @@ void verifyPaths(const std::vector<std::vector<Point>>& source,
         const DistanceQuality rawReverse = directedDistance(output, sourceClosed, width, height);
         DistanceQuality forward = rawForward;
         DistanceQuality reverse = rawReverse;
-        SupportedPathSamples supported;
+        // Always calculate LINE/LINE support and corner reconstruction quality.
+        // Previously this diagnostic only ran after the ordinary distance gate
+        // failed, which meant an otherwise-close analytic rectangle reported a
+        // zero corner extension and could bypass a deliberately strict corner
+        // limit. Distance relaxation remains conditional; only the independent
+        // corner metric is now evaluated for every path.
+        SupportedPathSamples supported = sampleSupportedPath(
+            paths[i], source[i], 0.25, options.verificationCornerExtensionPixels);
         if (rawForward.maximum > options.verificationMaximumPixels ||
             rawReverse.p95 > options.verificationP95Pixels ||
             rawReverse.maximum > options.verificationMaximumPixels) {
-            supported = sampleSupportedPath(
-                paths[i], source[i], 0.25, options.verificationCornerExtensionPixels);
             forward = directedDistance(sourceClosed, output, width, height,
                                        &supported.cornerZones);
             reverse = directedDistance(
