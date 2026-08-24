@@ -1,4 +1,4 @@
-# SCM AutoContour V9.1.0
+# SCM AutoContour V9.1.1
 
 Native 64-bit CorelDRAW 2024 CPG plugin for manufacturing/laser-cutting contours.
 
