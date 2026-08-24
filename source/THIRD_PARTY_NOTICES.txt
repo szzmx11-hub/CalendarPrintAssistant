@@ -1,0 +1,14 @@
+SCM AutoContour V9.1.0 - Third-Party Components
+
+This package builds and statically links the following open-source components.
+No paid runtime authorization is required. Their copyright notices and license
+texts are copied into the installed plugin's licenses folder by the installer.
+
+- OpenCV: Apache License 2.0
+- Eigen: Mozilla Public License 2.0 (headers are used under Eigen's terms)
+- Ceres Solver: BSD 3-Clause License
+- Boost.Geometry: Boost Software License 1.0
+- Clipper2: Boost Software License 1.0
+
+The installer obtains these components from the official Microsoft vcpkg port
+registry and preserves their individual copyright files.

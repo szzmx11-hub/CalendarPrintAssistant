@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="MSThemeCompatible" content="yes" />
+  <meta http-equiv="X-UA-Compatible" content="IE=EmulateIE11" />
+  <title>自动寻边工具</title>
+  <link rel="stylesheet" href="panel.css" type="text/css" />
+</head>
+<body>
+  <div class="panel">
+    <div class="header">
+      <div class="logo">巡</div>
+      <div class="header-text">
+        <h1>自动寻边工具</h1>
+        <p>V8 完整操作界面＋V9 原生几何引擎 · V9.1.0</p>
+      </div>
+    </div>
+
+    <div id="selectionCard" class="selection-card neutral">
+      <span class="selection-dot"></span>
+      <div class="selection-text">
+        <strong id="selectionTitle">请只选择一张位图</strong>
+        <span id="selectionInfo">支持 PNG、JPG 等位图对象</span>
+      </div>
+    </div>
+
+    <div class="mode-card">
+      <div class="section-title">选择寻边功能</div>
+
+      <label id="modeOuterLabel" class="mode-option selected" for="modeOuter">
+        <input id="modeOuter" name="traceMode" type="radio" value="outer" checked="checked" />
+        <span class="mode-copy">
+          <strong>产品外形寻边</strong>
+          <small>只生成产品最外围切割路径</small>
+        </span>
+      </label>
+
+      <label id="modeInnerLabel" class="mode-option" for="modeInner">
+        <input id="modeInner" name="traceMode" type="radio" value="inner" />
+        <span class="mode-copy">
+          <strong>产品内部寻边</strong>
+          <small>圣诞树、房屋、积雪等内部细节</small>
+        </span>
+      </label>
+
+      <label id="modeBothLabel" class="mode-option" for="modeBoth">
+        <input id="modeBoth" name="traceMode" type="radio" value="both" />
+        <span class="mode-copy">
+          <strong>内外同时寻边</strong>
+          <small>一次生成外形和内部细节路径</small>
+        </span>
+      </label>
+
+      <label id="holesRow" class="holes-row" for="includeHoles">
+        <input id="includeHoles" type="checkbox" />
+        <span>
+          <strong>同时提取圆孔内径</strong>
+          <small>本地识别后按圆心和半径生成标准正圆</small>
+        </span>
+      </label>
+    </div>
+
+    <div class="action-card">
+      <div id="currentTask" class="current-task">当前：产品外形寻边</div>
+      <button id="startButton" class="start-button" type="button">开始寻边</button>
+      <div class="action-hint">多尺度亚像素 · 最少图元规划 · 双向贴合复检</div>
+    </div>
+
+    <div id="progressBox" class="progress-box idle">
+      <div class="progress-head">
+        <span id="progressText">等待开始</span>
+        <strong id="progressValue">0%</strong>
+      </div>
+      <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+    </div>
+
+    <button id="advancedToggle" class="advanced-toggle" type="button">
+      精度设置 <span id="advancedArrow">▼</span>
+    </button>
+
+    <div id="advancedPanel" class="advanced-panel hidden">
+      <label class="control-row" for="detail">
+        <span>边缘精细度</span>
+        <input id="detail" type="range" min="90" max="100" value="98" />
+        <output id="detailValue">98</output>
+      </label>
+
+      <label class="control-row" for="smoothing">
+        <span>曲线平滑强度</span>
+        <input id="smoothing" type="range" min="0" max="100" value="42" />
+        <output id="smoothingValue">42</output>
+      </label>
+
+      <label class="control-row" for="sensitivity">
+        <span>背景识别强度</span>
+        <input id="sensitivity" type="range" min="20" max="90" value="52" />
+        <output id="sensitivityValue">52</output>
+      </label>
+
+      <label class="control-row" for="colors">
+        <span>内部颜色数</span>
+        <input id="colors" type="range" min="24" max="96" value="56" />
+        <output id="colorsValue">56</output>
+      </label>
+
+      <label class="control-row" for="minArea">
+        <span>最小图形面积</span>
+        <input id="minArea" type="range" min="1" max="100" value="10" />
+        <output id="minAreaValue">0.01 mm²</output>
+      </label>
+
+      <button id="resetButton" class="reset-button" type="button">恢复推荐值</button>
+    </div>
+
+    <div class="output-card">
+      <div><span>外形／圆孔</span><strong class="red">红色 · 0.01 mm</strong></div>
+      <div><span>内部细节</span><strong class="blue">蓝色 · 0.01 mm</strong></div>
+      <div><span>精度模式</span><strong>制造级（精度优先）</strong></div>
+      <div><span>本地引擎</span><strong>C++20 原生图元规划＋双向贴合复检</strong></div>
+      <div><span>当前输出</span><strong id="outputSummary">单条最外围闭合路径</strong></div>
+    </div>
+
+    <div id="status" class="status">等待选择位图</div>
+    <p class="footer-tip">切割前请在线框视图检查路径、圆孔数量和实际尺寸。</p>
+  </div>
+  <script src="panel.js" type="text/javascript"></script>
+</body>
+</html>

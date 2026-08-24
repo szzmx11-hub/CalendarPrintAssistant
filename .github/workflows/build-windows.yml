@@ -1,35 +1,73 @@
-name: Build Windows EXE
+name: Build SCM AutoContour V9.1.0 Windows x64
 
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    paths:
+      - "source/**"
+      - "installer/**"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
+      - name: Enable MSBuild
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Publish single EXE
+      - name: Prepare CorelDRAW automation type library
         shell: pwsh
-        run: dotnet publish CalendarPrintAssistant.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false -o publish
+        run: |
+          git clone --depth 1 https://github.com/hongwenjun/CorelDRAW-CPG.git "$env:RUNNER_TEMP\CorelDRAW-CPG"
+          New-Item -ItemType Directory -Force source\_generated | Out-Null
+          Copy-Item "$env:RUNNER_TEMP\CorelDRAW-CPG\TypeLibs\VGCoreAuto.tlb" source\_generated\VGCoreAuto.tlb
 
-      - name: Rename EXE
+      - name: Prepare vcpkg
         shell: pwsh
-        run: Copy-Item publish/CalendarPrintAssistant.exe publish/日历打印助手.exe
+        run: |
+          git clone --depth 1 --branch 2026.05.25 https://github.com/microsoft/vcpkg.git "$env:RUNNER_TEMP\vcpkg"
+          & "$env:RUNNER_TEMP\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
 
-      - name: Upload EXE
+      - name: Configure Release
+        shell: pwsh
+        run: |
+          cmake -S source -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:RUNNER_TEMP\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static-md `
+            -DSCM_V9_PRODUCTION=ON `
+            -DBUILD_TESTING=ON
+
+      - name: Build Release
+        shell: pwsh
+        run: cmake --build build --config Release --parallel
+
+      - name: Run engine tests
+        shell: pwsh
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Assemble one-click package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package\files | Out-Null
+          Copy-Item build\Release\SCMAutoContourNative64.cpg package\files\SCMAutoContourNative64.cpg
+          Copy-Item installer\Install-GUI.ps1 package\files\Install-GUI.ps1
+          Copy-Item installer\SCMAutoContourV9Panel package\files\SCMAutoContourV9Panel -Recurse
+          Copy-Item 双击安装插件.vbs package\双击安装插件.vbs
+          Copy-Item 使用说明.txt package\使用说明.txt
+          Compress-Archive -Path package\* -DestinationPath SCM自动寻边_V9.1.0_V8完整界面_一键安装版.zip -Force
+
+      - name: Upload verified installer
         uses: actions/upload-artifact@v4
         with:
-          name: CalendarPrintAssistant-Windows-x64
-          path: publish/日历打印助手.exe
+          name: SCM-AutoContour-V9.1.0-V8-Full-Panel
+          path: SCM自动寻边_V9.1.0_V8完整界面_一键安装版.zip
           if-no-files-found: error
+          retention-days: 30

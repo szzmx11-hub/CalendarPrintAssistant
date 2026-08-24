@@ -1,0 +1,71 @@
+#include <windows.h>
+#include "resource.h"
+#pragma code_page(65001)
+
+1 VERSIONINFO
+FILEVERSION 9,1,0,0
+PRODUCTVERSION 9,1,0,0
+FILEFLAGSMASK 0x3fL
+FILEOS 0x40004L
+FILETYPE 0x2L
+FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404B0"
+        BEGIN
+            VALUE "CompanyName", "SCM\0"
+            VALUE "FileDescription", "SCM AutoContour V9 x64 CorelDRAW Plugin\0"
+            VALUE "FileVersion", "9.1.0\0"
+            VALUE "InternalName", "SCMAutoContourNative64\0"
+            VALUE "OriginalFilename", "SCMAutoContourNative64.cpg\0"
+            VALUE "ProductName", "SCM AutoContour V9\0"
+            VALUE "ProductVersion", "9.1.0\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
+
+IDD_SCM_CONTOUR DIALOGEX 0, 0, 340, 260
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "SCM V9.1.0 64位原生自动寻边"
+FONT 10, "Microsoft YaHei UI"
+BEGIN
+    LTEXT           "生产引擎：OpenCV + Eigen + Ceres + Boost.Geometry + Clipper2", -1, 10, 7, 320, 12
+    GROUPBOX        "识别来源", -1, 8, 22, 324, 50
+    AUTORADIOBUTTON "智能产品（推荐）", IDC_SOURCE_AUTO, 18, 37, 120, 12, WS_GROUP
+    AUTORADIOBUTTON "透明通道", IDC_SOURCE_ALPHA, 182, 37, 80, 12
+    AUTORADIOBUTTON "深色图形", IDC_SOURCE_DARK, 18, 54, 80, 12
+    AUTORADIOBUTTON "浅色图形", IDC_SOURCE_LIGHT, 182, 54, 80, 12
+
+    GROUPBOX        "输出路径", -1, 8, 78, 324, 35
+    AUTORADIOBUTTON "外轮廓 + 孔", IDC_PATH_ALL, 18, 92, 88, 12, WS_GROUP
+    AUTORADIOBUTTON "仅外轮廓", IDC_PATH_OUTER, 126, 92, 80, 12
+    AUTORADIOBUTTON "仅孔洞", IDC_PATH_HOLES, 238, 92, 65, 12
+
+    LTEXT           "阈值 (%)", -1, 15, 123, 70, 12
+    EDITTEXT        IDC_THRESHOLD, 92, 121, 58, 16, ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "建议 50；透明毛边可调高", -1, 164, 123, 160, 12
+
+    LTEXT           "预平滑 (px)", -1, 15, 147, 70, 12
+    EDITTEXT        IDC_BLUR, 92, 145, 58, 16, ES_AUTOHSCROLL
+    LTEXT           "0=关闭，建议 0.55", -1, 164, 147, 150, 12
+
+    LTEXT           "误差上限 (mm)", -1, 15, 171, 72, 12
+    EDITTEXT        IDC_TOLERANCE, 92, 169, 58, 16, ES_AUTOHSCROLL
+    LTEXT           "激光切割建议 0.01 - 0.05", -1, 164, 171, 160, 12
+
+    LTEXT           "最小面积 (mm²)", -1, 15, 195, 72, 12
+    EDITTEXT        IDC_MINAREA, 92, 193, 58, 16, ES_AUTOHSCROLL
+    LTEXT           "过滤孤立噪点", -1, 164, 195, 120, 12
+
+    LTEXT           "刀路偏置 (mm)", -1, 15, 219, 72, 12
+    EDITTEXT        IDC_OFFSET, 92, 217, 58, 16, ES_AUTOHSCROLL
+    LTEXT           "0=贴边；正数外扩；负数内缩", -1, 164, 219, 165, 12
+
+    DEFPUSHBUTTON   "生成激光轮廓", IDC_RUN, 108, 240, 94, 17
+    PUSHBUTTON      "取消", IDCANCEL, 216, 240, 58, 17
+END
