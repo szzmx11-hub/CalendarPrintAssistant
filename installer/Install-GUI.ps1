@@ -1,3 +1,8 @@
+[CmdletBinding()]
+param(
+    [switch]$SelfTest
+)
+
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -12,7 +17,7 @@ public static class ScmDpi {
 [ScmDpi]::SetProcessDPIAware() | Out-Null
 
 $encodedText = @(
-    "U0NNIFY5LjEuMCBWOOWujOaVtOeVjOmdouWuieijheWZqA==",
+    "U0NNIFY5LjEuMSBWOOWujOaVtOeVjOmdouWuieijheWZqA==",
     "5peg6ZyA5LiL6L295oiW57yW6K+R77yM6YCJ5oupIENvcmVsRFJBVyAyMDI0IOWuieijheS9jee9ruWQjuebtOaOpeWuieijheOAgg==",
     "6YCJ5oupIENvcmVsRFJBVyDlronoo4XkvY3nva4=",
     "5pm66IO95omr5o+P",
@@ -33,7 +38,7 @@ $encodedText = @(
     "5q2j5Zyo5qCh6aqM5a6J6KOF5paH5Lu24oCm4oCm",
     "5a6J6KOF5paH5Lu25qCh6aqM5aSx6LSl77yM6K+36YeN5paw6Kej5Y6L5a6J6KOF5YyF44CC",
     "5a6J6KOF5oiQ5Yqf",
-    "U0NNIFY5LjEuMCDlt7LmiJDlip/lronoo4XjgIIKClY45a6M5pW05pON5L2c6Z2i5p2/5ZKMVjnljp/nlJ/lvJXmk47lnYflt7Llronoo4XliLDvvJp7MH0KCuaYr+WQpueri+WNs+WQr+WKqCBDb3JlbERSQVfvvJ8=",
+    "U0NNIFY5LjEuMSDlt7LmiJDlip/lronoo4XjgIIKClY45a6M5pW05pON5L2c6Z2i5p2/5ZKMVjnljp/nlJ/lvJXmk47lnYflt7Llronoo4XliLDvvJp7MH0KCuaYr+WQpueri+WNs+WQr+WKqCBDb3JlbERSQVfvvJ8=",
     "5a6J6KOF5aSx6LSl",
     "5a6J6KOF5aSx6LSl77yaezB9",
     "5rKh5pyJ5qOA5rWL5Yiw5bey5a6J6KOF55qEIFNDTSBWOSDmj5Lku7bjgII=",
@@ -42,7 +47,7 @@ $encodedText = @(
     "5q2j5Zyo5Y246L295o+S5Lu24oCm4oCm",
     "5YWz6Zet",
     "5bey6YCJ5oup77yaezB9",
-    "5a6J6KOF5Zmo77yaVjkuMS4w772c5YaF572u5byV5pOO77yaVjkuMS4w772cNjQg5L2NIEMrKyDljp/nlJ/mj5Lku7bvvItWOOWujOaVtOaziuWdnumdouadv++9nOemu+e6v+eJiA==",
+    "5a6J6KOF5Zmo77yaVjkuMS4x772c5YaF572u5byV5pOO77yaVjkuMS4x772cNjQg5L2NIEMrKyDljp/nlJ/mj5Lku7bvvItWOOWujOaVtOaziuWdnumdouadv++9nOemu+e6v+eJiA==",
     "56Gu6K6k5Y246L29",
     "56Gu5a6a6KaB5Y246L295omA6YCJIENvcmVsRFJBVyDkuK3nmoQgU0NNIFY5IOaPkuS7tuWQl++8nw==",
     "5q2j5Zyo5ZCv5YqoIENvcmVsRFJBV+KApuKApg==",
@@ -60,6 +65,49 @@ $script:corelLocationKeys = [System.Collections.Generic.HashSet[string]]::new(
 $script:selectedPrograms64 = $null
 $sourceCpg = Join-Path $PSScriptRoot "SCMAutoContourNative64.cpg"
 $sourcePanel = Join-Path $PSScriptRoot "SCMAutoContourV9Panel"
+$requiredPanelFiles = @(
+    "CorelDrw.addon", "AppUI.xslt", "UserUI.xslt",
+    "panel.html", "panel.css", "panel.js"
+)
+
+if ($SelfTest) {
+    if (-not (Test-Path -LiteralPath $sourceCpg)) {
+        throw "SELFTEST: missing SCMAutoContourNative64.cpg"
+    }
+    $embeddedVersion = ([Diagnostics.FileVersionInfo]::GetVersionInfo($sourceCpg)).FileVersion
+    if (-not $embeddedVersion -or -not $embeddedVersion.StartsWith("9.1.1")) {
+        throw "SELFTEST: expected CPG version 9.1.1, got '$embeddedVersion'"
+    }
+    foreach ($requiredPanelFile in $requiredPanelFiles) {
+        if (-not (Test-Path -LiteralPath (Join-Path $sourcePanel $requiredPanelFile))) {
+            throw "SELFTEST: missing panel file $requiredPanelFile"
+        }
+    }
+    Write-Output "SCM V9.1.1 installer self-test passed."
+    exit 0
+}
+
+function Test-IsAdministrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if (-not (Test-IsAdministrator)) {
+    try {
+        $systemPowerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+        $escapedScript = $PSCommandPath.Replace('"', '""')
+        $argumentLine = '-NoLogo -NoProfile -ExecutionPolicy Bypass -STA -File "{0}"' -f $escapedScript
+        $elevated = Start-Process -FilePath $systemPowerShell -Verb RunAs `
+            -ArgumentList $argumentLine -PassThru -Wait -ErrorAction Stop
+        exit $elevated.ExitCode
+    } catch {
+        [Windows.Forms.MessageBox]::Show(
+            "Administrator permission was not granted. Choose Yes in the Windows prompt and try again.`r`n`r`n$($_.Exception.Message)",
+            "SCM V9.1.1 installer could not start", "OK", "Error") | Out-Null
+        exit 5
+    }
+}
 
 function Normalize-CorelPath([string]$candidate) {
     if ([string]::IsNullOrWhiteSpace($candidate)) { return $null }
@@ -287,8 +335,8 @@ $installButton.Add_Click({
         if (-not (Test-Path $sourceCpg)) { throw (T 15) }
         if (-not (Test-Path (Join-Path $sourcePanel "AppUI.xslt"))) { throw (T 35) }
         $embeddedVersion = ([Diagnostics.FileVersionInfo]::GetVersionInfo($sourceCpg)).FileVersion
-        if (-not $embeddedVersion -or -not $embeddedVersion.StartsWith("9.1.0")) {
-            throw "安装包中的原生引擎不是 V9.1.0，已停止安装，防止旧版 CPG 被伪装成新版。"
+        if (-not $embeddedVersion -or -not $embeddedVersion.StartsWith("9.1.1")) {
+            throw "The packaged native engine is not V9.1.1. Installation stopped to prevent a version mismatch."
         }
 
         $addons = Join-Path $script:selectedPrograms64 "Addons"
@@ -311,7 +359,7 @@ $installButton.Add_Click({
         New-Item -ItemType Directory -Force -Path $target | Out-Null
         Copy-Item $sourceCpg $targetCpg -Force
         Copy-Item -LiteralPath $sourcePanel -Destination $targetPanel -Recurse -Force
-        "9.1.0-installer;9.1.0-engine;v8-full-panel" | Set-Content (Join-Path $target "VERSION") -Encoding ASCII
+        "9.1.1-installer;9.1.1-engine;v8-full-panel" | Set-Content (Join-Path $target "VERSION") -Encoding ASCII
 
         $statusLabel.Text = T 18
         $progress.Value = 90
@@ -319,7 +367,7 @@ $installButton.Add_Click({
         $sourceHash = (Get-FileHash $sourceCpg -Algorithm SHA256).Hash
         $targetHash = (Get-FileHash $targetCpg -Algorithm SHA256).Hash
         if ($sourceHash -ne $targetHash) { throw (T 19) }
-        foreach ($requiredPanelFile in @("CorelDrw.addon", "AppUI.xslt", "UserUI.xslt", "panel.html", "panel.css", "panel.js")) {
+        foreach ($requiredPanelFile in $requiredPanelFiles) {
             if (-not (Test-Path (Join-Path $targetPanel $requiredPanelFile))) { throw (T 35) }
         }
 
