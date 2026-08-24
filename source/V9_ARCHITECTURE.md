@@ -1,4 +1,4 @@
-# SCM AutoContour V9.1.0 production architecture
+# SCM AutoContour V9.1.1 production architecture
 
 The CorelDRAW command calls `buildManufacturingPaths`; it does not call the old
 polyline planner directly.
