@@ -3,8 +3,8 @@
 #pragma code_page(65001)
 
 1 VERSIONINFO
-FILEVERSION 9,1,0,0
-PRODUCTVERSION 9,1,0,0
+FILEVERSION 9,1,1,0
+PRODUCTVERSION 9,1,1,0
 FILEFLAGSMASK 0x3fL
 FILEOS 0x40004L
 FILETYPE 0x2L
@@ -16,11 +16,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "SCM\0"
             VALUE "FileDescription", "SCM AutoContour V9 x64 CorelDRAW Plugin\0"
-            VALUE "FileVersion", "9.1.0\0"
+            VALUE "FileVersion", "9.1.1\0"
             VALUE "InternalName", "SCMAutoContourNative64\0"
             VALUE "OriginalFilename", "SCMAutoContourNative64.cpg\0"
             VALUE "ProductName", "SCM AutoContour V9\0"
-            VALUE "ProductVersion", "9.1.0\0"
+            VALUE "ProductVersion", "9.1.1\0"
         END
     END
     BLOCK "VarFileInfo"
@@ -31,7 +31,7 @@ END
 
 IDD_SCM_CONTOUR DIALOGEX 0, 0, 340, 260
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "SCM V9.1.0 64位原生自动寻边"
+CAPTION "SCM V9.1.1 64位原生自动寻边"
 FONT 10, "Microsoft YaHei UI"
 BEGIN
     LTEXT           "生产引擎：OpenCV + Eigen + Ceres + Boost.Geometry + Clipper2", -1, 10, 7, 320, 12
