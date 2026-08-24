@@ -1,9 +1,9 @@
-name: Build SCM AutoContour V9.1.0 Windows x64
+name: Build SCM AutoContour V9.1.1 Windows x64
 
 on:
   workflow_dispatch:
   push:
-    branches: [ scm-autocontour-v9.1.0-build ]
+    branches: [ scm-autocontour-v9.1.1-build ]
     paths:
       - "source/**"
       - "installer/**"
@@ -60,14 +60,23 @@ jobs:
           Copy-Item build\Release\SCMAutoContourNative64.cpg package\files\SCMAutoContourNative64.cpg
           Copy-Item installer\Install-GUI.ps1 package\files\Install-GUI.ps1
           Copy-Item installer\SCMAutoContourV9Panel package\files\SCMAutoContourV9Panel -Recurse
-          Copy-Item 双击安装插件.vbs package\双击安装插件.vbs
+          Copy-Item 双击安装插件.cmd package\双击安装插件.cmd
           Copy-Item 使用说明.txt package\使用说明.txt
-          Compress-Archive -Path package\* -DestinationPath SCM自动寻边_V9.1.0_V8完整界面_一键安装版.zip -Force
+
+      - name: Validate one-click installer entry
+        shell: cmd
+        run: |
+          set SCM_INSTALLER_SELFTEST=1
+          call package\双击安装插件.cmd
+
+      - name: Create verified ZIP
+        shell: pwsh
+        run: Compress-Archive -Path package\* -DestinationPath SCM自动寻边_V9.1.1_V8完整界面_一键安装版.zip -Force
 
       - name: Upload verified installer
         uses: actions/upload-artifact@v4
         with:
-          name: SCM-AutoContour-V9.1.0-V8-Full-Panel
-          path: SCM自动寻边_V9.1.0_V8完整界面_一键安装版.zip
+          name: SCM-AutoContour-V9.1.1-V8-Full-Panel
+          path: SCM自动寻边_V9.1.1_V8完整界面_一键安装版.zip
           if-no-files-found: error
           retention-days: 30
