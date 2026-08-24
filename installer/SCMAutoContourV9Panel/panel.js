@@ -115,14 +115,14 @@
     registryWrite("MinimumAreaSquareMillimeters", (number(byId("minArea").value) / 1000).toFixed(3));
     registryWrite("OffsetMillimeters", "0.000");
     registryWrite("LastStatus", "pending");
-    registryWrite("LastMessage", "正在启动 V9.1.0 原生引擎");
+    registryWrite("LastMessage", "正在启动 V9.1.1 原生引擎");
   }
   function nativeControl(command) {
     var controls, control;
     if (nativeControls[command]) { return nativeControls[command]; }
     controls = app.CommandBars.Item("Standard").Controls;
     control = controls.AddCustomButton(PLUGIN_CATEGORY, command, 1, true);
-    if (!control || !control.ID) { throw new Error("V9.1.0 原生命令没有注册成功"); }
+    if (!control || !control.ID) { throw new Error("V9.1.1 原生命令没有注册成功"); }
     nativeControls[command] = control;
     return control;
   }
@@ -202,7 +202,7 @@
     try {
       internalJob = { source: source, mode: mode, document: app.ActiveDocument,
         workBitmap: null, settings: null, result: null, commandStarted: false };
-      internalJob.document.BeginCommandGroup("SCM V9.1.0 内部图案寻边");
+      internalJob.document.BeginCommandGroup("SCM V9.1.1 内部图案寻边");
       internalJob.commandStarted = true;
       setProgress(mode === "both" ? 78 : 18, "正在准备内部图案识别", "running");
       internalJob.workBitmap = source.Duplicate();
@@ -267,7 +267,7 @@
     } catch (error) {
       setBusy(false);
       setProgress(100, "处理未完成", "failed");
-      setStatus("启动失败：" + errorText(error) + "。请确认安装的是 V9.1.0，而不是 V9.0.7。", "failed");
+      setStatus("启动失败：" + errorText(error) + "。请确认安装的是 V9.1.1，而不是 V9.0.7。", "failed");
       refreshSelection();
     }
   }
