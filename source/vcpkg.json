@@ -1,6 +1,6 @@
 {
   "name": "scm-autocontour-v9",
-  "version-string": "9.1.0",
+  "version-string": "9.1.1",
   "dependencies": [
     {
       "name": "opencv4",
